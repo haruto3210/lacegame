@@ -1,11 +1,24 @@
 <!DOCTYPE html>
 <html>
-<body>
+<body style="margin:0; overflow:hidden;">
 <canvas id="game"></canvas>
+<div id="hud" style="
+  position:fixed;
+  top:10px; left:10px;
+  color:white;
+  font-family:sans-serif;
+  font-size:20px;
+  text-shadow:0 0 5px black;
+">Speed: 0 km/h</div>
 
 <script type="module">
-import * as THREE from "./three/build/three.module.js";
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js";
+import { OBJLoader } from "https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/loaders/OBJLoader.js";
+import { MTLLoader } from "https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/loaders/MTLLoader.js";
 
+// =========================
+// 基本セットアップ
+// =========================
 const renderer = new THREE.WebGLRenderer({
   canvas: document.getElementById("game")
 });
@@ -17,25 +30,158 @@ scene.background = new THREE.Color(0x87ceeb);
 const camera = new THREE.PerspectiveCamera(
   75, window.innerWidth / window.innerHeight, 0.1, 1000
 );
-camera.position.set(0, 1, 5);
+camera.position.set(0, 3, -6);
 
-const box = new THREE.Mesh(
-  new THREE.BoxGeometry(1, 1, 1),
-  new THREE.MeshStandardMaterial({ color: 0xff0000 })
-);
-scene.add(box);
-
+// =========================
+// ライト
+// =========================
+scene.add(new THREE.AmbientLight(0xffffff, 0.4));
 const light = new THREE.DirectionalLight(0xffffff, 1);
-light.position.set(5, 10, 5);
+light.position.set(5, 10, -5);
 scene.add(light);
 
+// =========================
+// 道路（無限スクロール）
+// =========================
+const roadSegments = [];
+const SEGMENT_LENGTH = 40;
+const SEGMENT_COUNT = 10;
+
+const roadGeo = new THREE.PlaneGeometry(10, SEGMENT_LENGTH);
+const roadMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+
+for (let i = 0; i < SEGMENT_COUNT; i++) {
+  const seg = new THREE.Mesh(roadGeo, roadMat);
+  seg.rotation.x = -Math.PI / 2;
+  seg.position.z = i * SEGMENT_LENGTH;
+  scene.add(seg);
+  roadSegments.push(seg);
+}
+
+// =========================
+// 車（OBJ）
+// =========================
+let car;
+let carReady = false;
+
+const mtlLoader = new MTLLoader();
+mtlLoader.load("./CL1M06.mtl", (materials) => {
+  materials.preload();
+
+  const objLoader = new OBJLoader();
+  objLoader.setMaterials(materials);
+
+  objLoader.load("./CL1M06.obj", (obj) => {
+    car = obj;
+    car.scale.set(0.01, 0.01, 0.01);
+    car.position.set(0, 0.5, 0);
+    scene.add(car);
+    carReady = true;
+  });
+});
+
+// =========================
+// 敵車（箱）
+// =========================
+let enemies = [];
+
+function spawnEnemy(zPos) {
+  const enemy = new THREE.Mesh(
+    new THREE.BoxGeometry(1, 0.5, 2),
+    new THREE.MeshStandardMaterial({ color: 0x0000ff })
+  );
+  enemy.position.set((Math.random() - 0.5) * 4, 0.5, zPos);
+  scene.add(enemy);
+  enemies.push({ obj: enemy, speed: 0.1 + Math.random() * 0.1 });
+}
+
+for (let i = 1; i <= 3; i++) {
+  spawnEnemy(i * 60);
+}
+
+// =========================
+// 入力
+// =========================
+let accel = 0;
+let steer = 0;
+let velocity = 0;
+let maxSpeed = 1.5;
+let curveOffset = 0;
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowUp") accel = 0.02;
+  if (e.key === "ArrowDown") accel = -0.03;
+  if (e.key === "ArrowLeft") steer = 0.03;
+  if (e.key === "ArrowRight") steer = -0.03;
+});
+
+document.addEventListener("keyup", (e) => {
+  if (e.key === "ArrowUp" || e.key === "ArrowDown") accel = 0;
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") steer = 0;
+});
+
+// =========================
+// HUD
+// =========================
+const hud = document.getElementById("hud");
+
+// =========================
+// ゲームループ
+// =========================
 function animate() {
   requestAnimationFrame(animate);
-  box.rotation.y += 0.01;
+
+  if (carReady) {
+    velocity += accel;
+    velocity *= 0.99;
+    velocity = Math.max(0, Math.min(maxSpeed, velocity));
+
+    curveOffset += 0.001 * velocity;
+
+    car.position.z += velocity;
+    car.position.x += steer * (1 + velocity * 2);
+    car.position.x = THREE.MathUtils.clamp(car.position.x, -4, 4);
+
+    car.rotation.y = -steer * 10;
+
+    const shake = velocity * 0.1;
+    const targetCamPos = new THREE.Vector3(
+      car.position.x + (Math.random() - 0.5) * shake,
+      3 + (Math.random() - 0.5) * shake,
+      car.position.z - 8
+    );
+    camera.position.lerp(targetCamPos, 0.1);
+    camera.lookAt(car.position.x, car.position.y + 0.5, car.position.z + 5);
+
+    roadSegments.forEach((seg) => {
+      if (seg.position.z + SEGMENT_LENGTH < car.position.z - 20) {
+        seg.position.z += SEGMENT_COUNT * SEGMENT_LENGTH;
+      }
+      const t = seg.position.z * 0.01;
+      seg.position.x = Math.sin(t) * 3;
+    });
+
+    enemies.forEach((e) => {
+      e.obj.position.z -= e.speed;
+      const t = e.obj.position.z * 0.01;
+      e.obj.position.x = Math.sin(t + 1.5) * 3;
+
+      const dx = e.obj.position.x - car.position.x;
+      const dz = e.obj.position.z - car.position.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      if (dist < 2) velocity *= 0.5;
+
+      if (e.obj.position.z < car.position.z - 20) {
+        e.obj.position.z = car.position.z + 80 + Math.random() * 40;
+      }
+    });
+
+    hud.textContent = `Speed: ${Math.round(velocity * 120)} km/h`;
+  }
+
   renderer.render(scene, camera);
 }
 animate();
 </script>
-
 </body>
 </html>
