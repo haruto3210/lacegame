@@ -884,32 +884,26 @@ function render3D() {
 
   carRenderData.sort((a, b) => b.proj.depth - a.proj.depth);
 
-  for (const { car, proj, angle, wx, wy } of carRenderData) {
+for (const { car, proj, angle, wx, wy } of carRenderData) {
     const s = Math.max(1, proj.scale * 2.5);
 
     ctx.save();
     ctx.translate(proj.x, proj.y);
+    ctx.rotate(-angle);  // ← 車の向きに合わせて回転
 
-    // Car body - realistic shape
+    // --- 車本体 ---
     ctx.fillStyle = car.color;
     ctx.beginPath();
-    // Hood
     ctx.moveTo(-s * 0.4, -s * 0.8);
     ctx.lineTo(s * 0.4, -s * 0.8);
-    // Right side
     ctx.lineTo(s * 0.45, s * 0.4);
-    // Rear right
     ctx.lineTo(s * 0.35, s * 0.9);
-    // Rear
     ctx.lineTo(-s * 0.35, s * 0.9);
-    // Rear left
     ctx.lineTo(-s * 0.45, s * 0.4);
-    // Left side
-    ctx.lineTo(-s * 0.4, -s * 0.8);
     ctx.closePath();
     ctx.fill();
 
-    // Windshield
+    // --- フロントガラス ---
     ctx.fillStyle = 'rgba(100,150,200,0.6)';
     ctx.beginPath();
     ctx.moveTo(-s * 0.3, -s * 0.6);
@@ -919,7 +913,7 @@ function render3D() {
     ctx.closePath();
     ctx.fill();
 
-    // Front lights
+    // --- 前ライト ---
     ctx.fillStyle = '#ffff00';
     ctx.beginPath();
     ctx.arc(-s * 0.15, -s * 0.75, s * 0.12, 0, Math.PI * 2);
@@ -928,7 +922,7 @@ function render3D() {
     ctx.arc(s * 0.15, -s * 0.75, s * 0.12, 0, Math.PI * 2);
     ctx.fill();
 
-    // Rear lights
+    // --- 後ろライト ---
     ctx.fillStyle = '#ff3333';
     ctx.beginPath();
     ctx.arc(-s * 0.15, s * 0.85, s * 0.1, 0, Math.PI * 2);
@@ -937,11 +931,11 @@ function render3D() {
     ctx.arc(s * 0.15, s * 0.85, s * 0.1, 0, Math.PI * 2);
     ctx.fill();
 
-    // Racing stripe
+    // --- ストライプ ---
     ctx.fillStyle = 'rgba(255,255,255,0.4)';
     ctx.fillRect(-s * 0.06, -s * 0.8, s * 0.12, s * 1.7);
 
-    // Shadow under car
+    // --- 影 ---
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.beginPath();
     ctx.ellipse(0, s * 0.95, s * 0.5, s * 0.15, 0, 0, Math.PI * 2);
@@ -949,7 +943,7 @@ function render3D() {
 
     ctx.restore();
 
-    // Name label for nearby cars
+    // --- 名前ラベル（回転させない） ---
     if (proj.depth < 150 && !car.isPlayer) {
       ctx.fillStyle = 'rgba(255,255,255,0.8)';
       ctx.font = `${Math.max(10, s * 0.7)}px Rajdhani, sans-serif`;
@@ -957,11 +951,8 @@ function render3D() {
       ctx.textBaseline = 'bottom';
       ctx.fillText(car.name, proj.x, proj.y - s * 1.2);
     }
-  }
-
-  // Draw minimap
-  drawMinimap();
 }
+
 
 function drawMinimap() {
   const mW = 150, mH = 150;
