@@ -13,8 +13,7 @@
 
 <script type="module">
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js";
-import { OBJLoader } from "https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/loaders/OBJLoader.js";
-import { MTLLoader } from "https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/loaders/MTLLoader.js";
+import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/loaders/GLTFLoader.js";
 
 // =========================
 // 基本セットアップ
@@ -59,25 +58,21 @@ for (let i = 0; i < SEGMENT_COUNT; i++) {
 }
 
 // =========================
-// 車（OBJ）
+// 車（GLB）
 // =========================
 let car;
 let carReady = false;
 
-const mtlLoader = new MTLLoader();
-mtlLoader.load("./CL1M06.mtl", (materials) => {
-  materials.preload();
+const loader = new GLTFLoader();
+loader.load("./CL1M06.glb", (gltf) => {
+  car = gltf.scene;
 
-  const objLoader = new OBJLoader();
-  objLoader.setMaterials(materials);
+  // 必要に応じて調整
+  car.scale.set(1, 1, 1);
+  car.position.set(0, 0.5, 0);
 
-  objLoader.load("./CL1M06.obj", (obj) => {
-    car = obj;
-    car.scale.set(0.01, 0.01, 0.01);
-    car.position.set(0, 0.5, 0);
-    scene.add(car);
-    carReady = true;
-  });
+  scene.add(car);
+  carReady = true;
 });
 
 // =========================
