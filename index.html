@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<body style="margin:0; overflow:hidden;">
+<canvas id="game"></canvas>
+
+<script type="module">
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js";
+
+// =========================
+// 基本セットアップ
+// =========================
+const renderer = new THREE.WebGLRenderer({
+  canvas: document.getElementById("game")
+});
+renderer.setSize(window.innerWidth, window.innerHeight);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
+
+const camera = new THREE.PerspectiveCamera(
+  75, window.innerWidth / window.innerHeight, 0.1, 1000
+);
+camera.position.set(0, 5, 10);
+
+// =========================
+// ライト
+// =========================
+scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+const sun = new THREE.DirectionalLight(0xffffff, 1);
+sun.position.set(10, 20, 10);
+scene.add(sun);
+
+// =========================
+// ブロック生成関数（マイクラ風）
+// =========================
+function createBlock(x, y, z, color = 0x55aa55) {
+  const geo = new THREE.BoxGeometry(1, 1, 1);
+  const mat = new THREE.MeshStandardMaterial({ color });
+  const block = new THREE.Mesh(geo, mat);
+  block.position.set(x, y, z);
+  scene.add(block);
+  return block;
+}
+
+// =========================
+// 地面（20×20 の草ブロック）
+// =========================
+for (let x = -10; x < 10; x++) {
+  for (let z = -10; z < 10; z++) {
+    createBlock(x, 0, z, 0x55aa55);
+  }
+}
+
+// =========================
+// 適当に木を生やす
+// =========================
+function createTree(x, z) {
+  // 幹
+  for (let y = 1; y <= 3; y++) {
+    createBlock(x, y, z, 0x8b4513);
+  }
+  // 葉
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dz = -1; dz <= 1; dz++) {
+      createBlock(x + dx, 4, z + dz, 0x228b22);
+    }
+  }
+}
+createTree(3, 3);
+createTree(-4, -2);
+createTree(6, -5);
+
+// =========================
+// カメラ移動（WASD）
+// =========================
+let move = { w: false, s: false, a: false, d: false };
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "w") move.w = true;
+  if (e.key === "s") move.s = true;
+  if (e.key === "a") move.a = true;
+  if (e.key === "d") move.d = true;
+});
+
+document.addEventListener("keyup", (e) => {
+  if (e.key === "w") move.w = false;
+  if (e.key === "s") move.s = false;
+  if (e.key === "a") move.a = false;
+  if (e.key === "d") move.d = false;
+});
+
+// =========================
+// ゲームループ
+// =========================
+function animate() {
+  requestAnimationFrame(animate);
+
+  const speed = 0.1;
+
+  if (move.w) camera.position.z -= speed;
+  if (move.s) camera.position.z += speed;
+  if (move.a) camera.position.x -= speed;
+  if (move.d) camera.position.x += speed;
+
+  camera.lookAt(0, 0, 0);
+
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
